@@ -1,0 +1,1 @@
+﻿"""Schema converter scaffold."""
