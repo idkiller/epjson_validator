@@ -1,4 +1,4 @@
-﻿"""Manually curated EnergyPlus 24.2.0 schema provider."""
+"""Manually curated EnergyPlus 24.2.x schema provider."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ NUMBER = "number"
 ARRAY = "array"
 VERTICES = "vertices"
 
+SUPPORTED_EP_VERSIONS = ("24.1.0", "24.2.0")
 
-def get_schema() -> VersionSchema:
+
+def get_schema(ep_version: str = "24.2.0") -> VersionSchema:
     return VersionSchema(
-        ep_version="24.2.0",
+        ep_version=ep_version,
         objects={
             "Version": ObjectSchema(
                 name="Version",

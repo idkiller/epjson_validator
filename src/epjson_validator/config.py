@@ -1,8 +1,8 @@
-﻿"""Project configuration and validation constants."""
+"""Project configuration and validation constants."""
 
 from __future__ import annotations
 
-SUPPORTED_EP_VERSIONS = ("24.2.0",)
+SUPPORTED_EP_VERSIONS = ("24.1.0", "24.2.0")
 DEFAULT_PROFILE = "svg-plan"
 DEFAULT_STAGE = "visualization"
 VALID_STAGES = ("schema", "reference", "geometry", "visualization")

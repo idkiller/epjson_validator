@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 
@@ -59,6 +59,16 @@ def test_valid_minimal_epjson() -> None:
 def test_version_detection() -> None:
     assert detect_version(make_valid_model()) == "24.2.0"
 
+
+
+
+def test_24_1_0_uses_shared_schema_provider() -> None:
+    model = make_valid_model()
+    model["Version"]["Version 1"]["version_identifier"] = "24.1.0"
+    report = validate_data(model)
+    assert report.ok is True
+    assert report.ep_version == "24.1.0"
+    assert report.schema_version == "24.1.0"
 
 def test_unsupported_version() -> None:
     model = make_valid_model()
