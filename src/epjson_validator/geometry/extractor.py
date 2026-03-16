@@ -1,4 +1,4 @@
-﻿"""Normalize epJSON objects into geometry models."""
+"""Extract normalized geometry from epJSON documents."""
 
 from __future__ import annotations
 
@@ -6,44 +6,52 @@ import math
 from typing import Any
 
 from epjson_validator.geometry.models import GeometryModel, Polygon3D, Vec3
-from epjson_validator.models import VersionSchema
+from epjson_validator.geometry.rules import GeometryRules
 
 
-def normalize_geometry(data: dict[str, Any], schema: VersionSchema | None) -> GeometryModel:
+def extract_geometry(data: dict[str, Any], rules: GeometryRules) -> GeometryModel:
     polygons: list[Polygon3D] = []
-    supported_categories: set[str]
-    if schema is None:
-        supported_categories = {
-            "BuildingSurface:Detailed",
-            "FenestrationSurface:Detailed",
-            "Shading:Zone:Detailed",
-            "Shading:Building:Detailed",
-            "Shading:Site:Detailed",
-        }
-    else:
-        supported_categories = {
-            name for name, object_schema in schema.objects.items() if object_schema.geometry_supported
-        }
-    for category in supported_categories:
+    for category, category_rule in rules.categories.items():
         raw_objects = data.get(category)
         if not isinstance(raw_objects, dict):
             continue
         for object_name, obj in raw_objects.items():
             if not isinstance(obj, dict):
                 continue
-            vertices = [_parse_vertex(raw_vertex) for raw_vertex in obj.get("vertices", []) if isinstance(raw_vertex, dict)]
+            vertices = [
+                _parse_vertex(raw_vertex)
+                for raw_vertex in obj.get(category_rule.vertices_field, [])
+                if isinstance(raw_vertex, dict)
+            ]
             polygons.append(
                 Polygon3D(
                     id=f"{category}:{object_name}",
                     category=category,
                     object_name=object_name,
                     vertices=vertices,
-                    parent_name=obj.get("building_surface_name") or obj.get("base_surface_name") or obj.get("outside_boundary_condition_object"),
-                    zone_name=obj.get("zone_name"),
-                    surface_type=obj.get("surface_type"),
+                    parent_name=_extract_parent_name(obj, category_rule.parent_fields),
+                    zone_name=_extract_optional_str(obj, category_rule.zone_field),
+                    surface_type=_extract_optional_str(obj, category_rule.surface_type_field),
                 )
             )
     return GeometryModel(polygons=polygons, bounds=_compute_bounds(polygons))
+
+
+def _extract_parent_name(obj: dict[str, Any], parent_fields: tuple[str, ...]) -> str | None:
+    for field_name in parent_fields:
+        value = obj.get(field_name)
+        if isinstance(value, str) and value:
+            return value
+    return None
+
+
+def _extract_optional_str(obj: dict[str, Any], field_name: str | None) -> str | None:
+    if not field_name:
+        return None
+    value = obj.get(field_name)
+    if isinstance(value, str) and value:
+        return value
+    return None
 
 
 def _parse_vertex(raw_vertex: dict[str, Any]) -> Vec3:

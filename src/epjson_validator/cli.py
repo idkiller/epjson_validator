@@ -1,4 +1,4 @@
-﻿"""Typer CLI entry point."""
+"""Typer CLI entry point."""
 
 from __future__ import annotations
 
@@ -8,10 +8,9 @@ from pathlib import Path
 
 import typer
 
-from epjson_validator.config import DEFAULT_PROFILE, DEFAULT_STAGE, VALID_PROFILES, VALID_STAGES
-from epjson_validator.loader import inspect_data, load_epjson
+from epjson_validator.config import DEFAULT_STAGE, SCHEMA_PATH_ENVVAR, VALID_STAGES
+from epjson_validator.loader import EPJSONLoadError, inspect_data, load_epjson
 from epjson_validator.pipeline.validate import validate_file
-from epjson_validator.schema.converter import convert_raw_schema, load_raw_schema, version_schema_to_dict
 
 app = typer.Typer(help="Validate EnergyPlus epJSON files.")
 
@@ -24,7 +23,7 @@ def _render_human_report(report: dict) -> str:
     grouped: dict[str, list[dict]] = defaultdict(list)
     for issue in report["issues"]:
         grouped[issue["stage"]].append(issue)
-    for stage in ("schema", "reference", "geometry", "visualization"):
+    for stage in ("schema", "reference", "geometry"):
         issues = grouped.get(stage)
         if not issues:
             continue
@@ -58,17 +57,32 @@ def _exit_code(report: dict, fail_on_warning: bool) -> int:
 @app.command()
 def validate(
     path: Path = typer.Argument(..., exists=True, readable=True, help="Path to epJSON file."),
+    schema_path: Path | None = typer.Option(
+        None,
+        "--schema-path",
+        envvar=SCHEMA_PATH_ENVVAR,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        help="Path to Energy+.schema.epJSON. Falls back to EPJSON_VALIDATOR_SCHEMA_PATH.",
+    ),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON report."),
     stage: str = typer.Option(DEFAULT_STAGE, "--stage", help="Validation stage cutoff."),
-    profile: str = typer.Option(DEFAULT_PROFILE, "--profile", help="Visualization profile."),
     fail_on_warning: bool = typer.Option(False, "--fail-on-warning", help="Fail when warnings exist."),
-    ep_version: str | None = typer.Option(None, "--ep-version", help="Override EnergyPlus version."),
 ) -> None:
+    if schema_path is None:
+        raise typer.BadParameter(
+            f"Schema path is required. Pass --schema-path or set {SCHEMA_PATH_ENVVAR}.",
+            param_hint="--schema-path",
+        )
     if stage not in VALID_STAGES:
         raise typer.BadParameter(f"Unsupported stage '{stage}'. Expected one of {', '.join(VALID_STAGES)}.")
-    if profile not in VALID_PROFILES:
-        raise typer.BadParameter(f"Unsupported profile '{profile}'. Expected one of {', '.join(VALID_PROFILES)}.")
-    report = validate_file(path, ep_version=ep_version, stage=stage, profile=profile).to_dict()
+
+    try:
+        report = validate_file(path, schema_path=schema_path, stage=stage).to_dict()
+    except EPJSONLoadError as exc:
+        raise typer.BadParameter(str(exc), param_hint="PATH") from exc
     if json_output:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
     else:
@@ -80,10 +94,12 @@ def validate(
 def inspect(
     path: Path = typer.Argument(..., exists=True, readable=True, help="Path to epJSON file."),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON output."),
-    ep_version: str | None = typer.Option(None, "--ep-version", help="Override EnergyPlus version."),
 ) -> None:
-    loaded = load_epjson(path)
-    info = inspect_data(loaded.data, ep_version)
+    try:
+        loaded = load_epjson(path)
+    except EPJSONLoadError as exc:
+        raise typer.BadParameter(str(exc), param_hint="PATH") from exc
+    info = inspect_data(loaded.data)
     payload = {
         "ep_version": info.ep_version,
         "object_count": info.object_count,
@@ -102,10 +118,12 @@ def inspect(
 def stats(
     path: Path = typer.Argument(..., exists=True, readable=True, help="Path to epJSON file."),
     json_output: bool = typer.Option(False, "--json", help="Emit JSON output."),
-    ep_version: str | None = typer.Option(None, "--ep-version", help="Override EnergyPlus version."),
 ) -> None:
-    loaded = load_epjson(path)
-    info = inspect_data(loaded.data, ep_version)
+    try:
+        loaded = load_epjson(path)
+    except EPJSONLoadError as exc:
+        raise typer.BadParameter(str(exc), param_hint="PATH") from exc
+    info = inspect_data(loaded.data)
     payload = {
         "ep_version": info.ep_version,
         "category_count": len(info.categories),
@@ -118,22 +136,3 @@ def stats(
     typer.echo(f"EnergyPlus version: {payload['ep_version'] or 'unknown'}")
     typer.echo(f"Categories: {payload['category_count']}")
     typer.echo(f"Objects: {payload['object_count']}")
-
-
-@app.command("convert-schema")
-def convert_schema(
-    path: Path = typer.Argument(..., exists=True, readable=True, help="Path to Energy+.schema.epJSON file."),
-    output: Path | None = typer.Option(None, "--output", "-o", help="Optional output path for converted JSON."),
-    ep_version: str = typer.Option("24.2.0", "--ep-version", help="Version label to assign to converted schema."),
-) -> None:
-    raw_schema = load_raw_schema(path)
-    converted = convert_raw_schema(raw_schema, ep_version=ep_version)
-    payload = version_schema_to_dict(converted)
-
-    if output is None:
-        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
-        return
-
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
-    typer.echo(f"Converted schema written to: {output}")

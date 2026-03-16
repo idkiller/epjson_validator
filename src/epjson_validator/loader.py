@@ -1,4 +1,4 @@
-﻿"""epJSON loading and version detection."""
+"""epJSON loading and version detection."""
 
 from __future__ import annotations
 
@@ -9,10 +9,25 @@ from typing import Any
 from epjson_validator.models import InspectInfo, LoadedEPJSON
 
 
+class EPJSONLoadError(ValueError):
+    """Raised when an input file cannot be loaded as epJSON."""
+
+
 def load_epjson(path: str | Path) -> LoadedEPJSON:
     file_path = Path(path)
-    with file_path.open("r", encoding="utf-8") as handle:
-        data = json.load(handle)
+    if file_path.suffix.lower() == ".idf":
+        raise EPJSONLoadError(
+            f"'{file_path.name}' looks like an IDF file. This tool validates epJSON, not IDF."
+        )
+    try:
+        with file_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise EPJSONLoadError(
+            f"Failed to parse '{file_path.name}' as epJSON JSON. Provide an epJSON file, not IDF or other text."
+        ) from exc
+    if not isinstance(data, dict):
+        raise EPJSONLoadError("epJSON document must be a JSON object.")
     return LoadedEPJSON(
         data=data,
         source=str(file_path),
@@ -37,11 +52,7 @@ def detect_version(data: dict[str, Any]) -> str | None:
     return None
 
 
-def resolve_version(data: dict[str, Any], override: str | None) -> str | None:
-    return override or detect_version(data)
-
-
-def inspect_data(data: dict[str, Any], override: str | None = None) -> InspectInfo:
+def inspect_data(data: dict[str, Any]) -> InspectInfo:
     categories: dict[str, int] = {}
     object_count = 0
     for category, raw_objects in data.items():
@@ -51,4 +62,4 @@ def inspect_data(data: dict[str, Any], override: str | None = None) -> InspectIn
             count = 1 if category == "Version" and raw_objects else len(raw_objects)
             categories[category] = count
             object_count += count
-    return InspectInfo(ep_version=resolve_version(data, override), categories=categories, object_count=object_count)
+    return InspectInfo(ep_version=detect_version(data), categories=categories, object_count=object_count)

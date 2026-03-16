@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-SUPPORTED_EP_VERSIONS = ("24.1.0", "24.2.0")
-DEFAULT_PROFILE = "svg-plan"
-DEFAULT_STAGE = "visualization"
-VALID_STAGES = ("schema", "reference", "geometry", "visualization")
-VALID_PROFILES = ("svg-plan", "svg-elevation", "three-basic")
+DEFAULT_STAGE = "geometry"
+VALID_STAGES = ("schema", "reference", "geometry")
 
 STAGE_ORDER = {
     "schema": 1,
     "reference": 2,
     "geometry": 3,
-    "visualization": 4,
 }
+
+SCHEMA_PATH_ENVVAR = "EPJSON_VALIDATOR_SCHEMA_PATH"
 
 PLANAR_TOLERANCE = 1e-5
 DISTINCT_TOLERANCE = 1e-7

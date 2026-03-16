@@ -10,7 +10,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [{name = "OpenAI Codex"}]
-dependencies = ["typer>=0.12,<1.0"]
+dependencies = [
+    "jsonschema>=4.0,<5.0",
+    "typer>=0.12,<1.0",
+]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]

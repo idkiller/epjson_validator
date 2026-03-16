@@ -1,16 +1,20 @@
-﻿# epjson_validator
+# epjson_validator
 
 `epjson_validator` is a Python 3.11+ CLI tool and reusable library for validating
-EnergyPlus epJSON files. It validates structure, references, geometry, and
-visualization readiness. It is not a simulator.
+EnergyPlus epJSON files. It validates:
+
+- schema compliance against an external `Energy+.schema.epJSON`
+- object-name references
+- geometry sanity for polygon-based objects
+
+It is not a simulator.
 
 ## Features
 
-- Version-aware validation for EnergyPlus `24.2.0`
+- Raw EnergyPlus schema validation via external `Energy+.schema.epJSON`
+- Reference validation using namespaces extracted from the raw schema
+- Geometry extraction and validation for objects with `vertices`
 - Structured diagnostics with machine-readable issue metadata
-- Clean validation pipeline split into schema, reference, geometry, and visualization stages
-- Extensible schema provider architecture for future EnergyPlus versions
-- Minimal dependency footprint with Typer for CLI and pytest for tests
 
 ## Installation
 
@@ -24,46 +28,42 @@ For development:
 python3 -m pip install -e .[dev]
 ```
 
+## Schema Path
+
+The validator does not bundle `Energy+.schema.epJSON`.
+
+Provide it either with:
+
+- CLI option `--schema-path`
+- environment variable `EPJSON_VALIDATOR_SCHEMA_PATH`
+
 ## CLI
 
 ```bash
-epjson-validator validate model.epJSON
-epjson-validator validate model.epJSON --json
-epjson-validator validate model.epJSON --stage geometry
-epjson-validator validate model.epJSON --profile svg-plan
-epjson-validator validate model.epJSON --ep-version 24.2.0
+epjson-validator validate model.epJSON --schema-path /path/to/Energy+.schema.epJSON
+epjson-validator validate model.epJSON --schema-path /path/to/Energy+.schema.epJSON --json
+epjson-validator validate model.epJSON --schema-path /path/to/Energy+.schema.epJSON --stage reference
+epjson-validator validate model.epJSON --schema-path /path/to/Energy+.schema.epJSON --stage geometry
 epjson-validator inspect model.epJSON
 epjson-validator stats model.epJSON
-epjson-validator convert-schema Energy+.schema.epJSON
-epjson-validator convert-schema Energy+.schema.epJSON -o converted_schema.json
 ```
 
-## Supported EnergyPlus Objects (MVP)
+## Validation Stages
 
-- `Version`
-- `GlobalGeometryRules`
-- `Zone`
-- `BuildingSurface:Detailed`
-- `FenestrationSurface:Detailed`
-- `Shading:Zone:Detailed`
-- `Shading:Building:Detailed`
-- `Shading:Site:Detailed`
-- `Construction`
-- `Material`
+- `schema`: validate epJSON against the raw EnergyPlus schema
+- `reference`: validate object-name references using namespaces extracted from the raw schema
+- `geometry`: validate polygon geometry extracted from objects with `vertices`
 
-## Raw schema converter (Energy+.schema.epJSON)
+## Library Usage
 
-The package includes a converter scaffold that can transform an EnergyPlus
-`Energy+.schema.epJSON` JSON payload into the internal `VersionSchema` model.
+```python
+from epjson_validator import validate_file
 
-Current converter behavior:
-- Reads object categories from top-level `properties`
-- Resolves per-object field definitions from `patternProperties` / `additionalProperties`
-- Maps primitive field types (`string`, `number`, `integer`, `boolean`, `array`, `object`)
-- Treats `vertices` specially as validator geometry field type
-- Resolves references via `object_list` + `object_lists` mapping
+report = validate_file(
+    "model.epJSON",
+    schema_path="/path/to/Energy+.schema.epJSON",
+)
 
-See `epjson_validator.schema.converter.convert.convert_raw_schema`.
-
-You can run conversion directly with CLI `convert-schema` and print JSON to stdout
-or write the converted payload to a file with `--output`.
+print(report.ok)
+print(report.summary)
+```
