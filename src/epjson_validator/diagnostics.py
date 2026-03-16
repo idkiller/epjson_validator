@@ -30,6 +30,9 @@ class ValidationReport:
     summary: dict[str, Any]
     ep_version: str | None = None
     schema_version: str | None = None
+    parametric_expanded: bool = False
+    parametric_run: int | None = None
+    parametric_available_runs: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -38,6 +41,9 @@ class ValidationReport:
             "summary": self.summary,
             "ep_version": self.ep_version,
             "schema_version": self.schema_version,
+            "parametric_expanded": self.parametric_expanded,
+            "parametric_run": self.parametric_run,
+            "parametric_available_runs": self.parametric_available_runs,
         }
 
 

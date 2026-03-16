@@ -9,7 +9,9 @@ from pathlib import Path
 import typer
 
 from epjson_validator.config import DEFAULT_STAGE, SCHEMA_PATH_ENVVAR, VALID_STAGES
+from epjson_validator.hvac import extract_hvac_diagrams, render_diagrams_html, render_diagrams_svg, render_diagrams_text
 from epjson_validator.loader import EPJSONLoadError, inspect_data, load_epjson
+from epjson_validator.parametric import ParametricExpansionError, expand_parametric_data
 from epjson_validator.pipeline.validate import validate_file
 
 app = typer.Typer(help="Validate EnergyPlus epJSON files.")
@@ -19,6 +21,10 @@ def _render_human_report(report: dict) -> str:
     lines: list[str] = []
     lines.append(f"EnergyPlus version: {report['ep_version'] or 'unknown'}")
     lines.append(f"Schema version: {report['schema_version'] or 'unknown'}")
+    if report.get("parametric_expanded"):
+        lines.append(
+            f"Parametric run: {report.get('parametric_run')} / {report.get('parametric_available_runs')}"
+        )
     lines.append(f"OK: {'yes' if report['ok'] else 'no'}")
     grouped: dict[str, list[dict]] = defaultdict(list)
     for issue in report["issues"]:
@@ -70,6 +76,17 @@ def validate(
     json_output: bool = typer.Option(False, "--json", help="Emit JSON report."),
     stage: str = typer.Option(DEFAULT_STAGE, "--stage", help="Validation stage cutoff."),
     fail_on_warning: bool = typer.Option(False, "--fail-on-warning", help="Fail when warnings exist."),
+    expand_parametric: bool = typer.Option(
+        False,
+        "--expand-parametric",
+        help="Expand Parametric:* objects before validation.",
+    ),
+    parametric_run: int | None = typer.Option(
+        None,
+        "--parametric-run",
+        min=1,
+        help="1-based parametric run index used with --expand-parametric.",
+    ),
 ) -> None:
     if schema_path is None:
         raise typer.BadParameter(
@@ -78,10 +95,18 @@ def validate(
         )
     if stage not in VALID_STAGES:
         raise typer.BadParameter(f"Unsupported stage '{stage}'. Expected one of {', '.join(VALID_STAGES)}.")
+    if parametric_run is not None and not expand_parametric:
+        raise typer.BadParameter("--parametric-run requires --expand-parametric.", param_hint="--parametric-run")
 
     try:
-        report = validate_file(path, schema_path=schema_path, stage=stage).to_dict()
-    except EPJSONLoadError as exc:
+        report = validate_file(
+            path,
+            schema_path=schema_path,
+            stage=stage,
+            expand_parametric=expand_parametric,
+            parametric_run=parametric_run,
+        ).to_dict()
+    except (EPJSONLoadError, ParametricExpansionError) as exc:
         raise typer.BadParameter(str(exc), param_hint="PATH") from exc
     if json_output:
         typer.echo(json.dumps(report, indent=2, sort_keys=True))
@@ -136,3 +161,53 @@ def stats(
     typer.echo(f"EnergyPlus version: {payload['ep_version'] or 'unknown'}")
     typer.echo(f"Categories: {payload['category_count']}")
     typer.echo(f"Objects: {payload['object_count']}")
+
+
+@app.command("hvac-graph")
+def hvac_graph(
+    path: Path = typer.Argument(..., exists=True, readable=True, help="Path to epJSON file."),
+    graph: str = typer.Option("all", "--graph", help="Graph family: air, plant, zone, or all."),
+    output_format: str = typer.Option("text", "--format", help="Output format: text, svg, or html."),
+    output: Path | None = typer.Option(
+        None,
+        "--output",
+        help="Output file path for svg/html. If omitted, output is written to stdout.",
+    ),
+    expand_parametric: bool = typer.Option(
+        False,
+        "--expand-parametric",
+        help="Expand Parametric:* objects before graph extraction.",
+    ),
+    parametric_run: int | None = typer.Option(
+        None,
+        "--parametric-run",
+        min=1,
+        help="1-based parametric run index used with --expand-parametric.",
+    ),
+) -> None:
+    if graph not in {"air", "plant", "zone", "all"}:
+        raise typer.BadParameter("Unsupported graph. Expected one of air, plant, zone, all.", param_hint="--graph")
+    if output_format not in {"text", "svg", "html"}:
+        raise typer.BadParameter("Unsupported format. Expected one of text, svg, html.", param_hint="--format")
+    if parametric_run is not None and not expand_parametric:
+        raise typer.BadParameter("--parametric-run requires --expand-parametric.", param_hint="--parametric-run")
+
+    try:
+        loaded = load_epjson(path)
+        data = loaded.data
+        if expand_parametric:
+            data = expand_parametric_data(data, run_index=parametric_run).data
+    except (EPJSONLoadError, ParametricExpansionError) as exc:
+        raise typer.BadParameter(str(exc), param_hint="PATH") from exc
+
+    diagrams = extract_hvac_diagrams(data)
+    if output_format == "text":
+        typer.echo(render_diagrams_text(diagrams, graph))
+        return
+
+    rendered = render_diagrams_html(diagrams, graph) if output_format == "html" else render_diagrams_svg(diagrams, graph)
+    if output is None:
+        typer.echo(rendered)
+        return
+    output.write_text(rendered, encoding="utf-8")
+    typer.echo(f"Wrote {output_format.upper()} to {output}")

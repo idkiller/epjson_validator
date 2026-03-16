@@ -9,6 +9,7 @@ from epjson_validator.config import STAGE_ORDER
 from epjson_validator.diagnostics import IssueCollector, ValidationReport, build_summary
 from epjson_validator.geometry import build_geometry_rules, extract_geometry, validate_geometry
 from epjson_validator.loader import detect_version, load_epjson
+from epjson_validator.parametric import expand_parametric_data
 from epjson_validator.reference import build_reference_index, validate_references
 from epjson_validator.schema import detect_schema_version, load_raw_schema, validate_against_raw_schema
 
@@ -18,9 +19,17 @@ def validate_file(
     *,
     schema_path: str | Path,
     stage: str = "geometry",
+    expand_parametric: bool = False,
+    parametric_run: int | None = None,
 ) -> ValidationReport:
     loaded = load_epjson(path)
-    return validate_data(loaded.data, schema_path=schema_path, stage=stage)
+    return validate_data(
+        loaded.data,
+        schema_path=schema_path,
+        stage=stage,
+        expand_parametric=expand_parametric,
+        parametric_run=parametric_run,
+    )
 
 
 def validate_data(
@@ -29,11 +38,18 @@ def validate_data(
     schema_path: str | Path | None = None,
     raw_schema: dict[str, Any] | None = None,
     stage: str = "geometry",
+    expand_parametric: bool = False,
+    parametric_run: int | None = None,
 ) -> ValidationReport:
     if raw_schema is None:
         if schema_path is None:
             raise ValueError("Either 'schema_path' or 'raw_schema' must be provided.")
         raw_schema = load_raw_schema(schema_path)
+
+    parametric_result = None
+    if expand_parametric:
+        parametric_result = expand_parametric_data(data, run_index=parametric_run)
+        data = parametric_result.data
 
     collector = IssueCollector()
     detected_ep_version = detect_version(data)
@@ -59,6 +75,9 @@ def validate_data(
         summary=summary,
         ep_version=detected_ep_version,
         schema_version=schema_version,
+        parametric_expanded=bool(parametric_result and parametric_result.expanded),
+        parametric_run=parametric_result.run_index if parametric_result else None,
+        parametric_available_runs=parametric_result.available_runs if parametric_result else 0,
     )
 
 

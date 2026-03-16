@@ -147,7 +147,11 @@ def make_raw_schema() -> dict:
                 "type": "object",
                 "name": {
                     "type": "string",
-                    "reference": ["SurfaceNames"],
+                    "reference": [
+                        "GlazedExtSubSurfNames",
+                        "SubSurfNames",
+                        "SurfAndSubSurfNames",
+                    ],
                 },
                 "patternProperties": {
                     "^.*\\S.*$": {
@@ -183,6 +187,90 @@ def make_raw_schema() -> dict:
                                     "additionalProperties": False,
                                 },
                             },
+                        },
+                        "additionalProperties": False,
+                    }
+                },
+            },
+            "SurfaceProperty:IncidentSolarMultiplier": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "required": ["surface_name", "incident_solar_multiplier"],
+                        "properties": {
+                            "surface_name": {
+                                "type": "string",
+                                "object_list": ["SurfaceNames"],
+                            },
+                            "incident_solar_multiplier": {
+                                "type": "number",
+                            },
+                        },
+                        "additionalProperties": False,
+                    }
+                },
+            },
+            "Parametric:Logic": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "lines": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "parametric_logic_line": {"type": "string"},
+                                    },
+                                    "required": ["parametric_logic_line"],
+                                    "additionalProperties": False,
+                                },
+                            }
+                        },
+                        "additionalProperties": False,
+                    }
+                },
+            },
+            "Parametric:RunControl": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "runs": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "perform_run": {"type": "string"},
+                                    },
+                                    "additionalProperties": False,
+                                },
+                            }
+                        },
+                        "additionalProperties": False,
+                    }
+                },
+            },
+            "Parametric:SetValueForRun": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "values": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "value_for_run": {"type": "string"},
+                                    },
+                                    "required": ["value_for_run"],
+                                    "additionalProperties": False,
+                                },
+                            }
                         },
                         "additionalProperties": False,
                     }
@@ -333,6 +421,34 @@ def test_object_type_namespace_is_not_treated_as_object_reference() -> None:
     )
 
 
+def test_incident_solar_multiplier_allows_fenestration_surface_names() -> None:
+    model = make_valid_model()
+    model["FenestrationSurface:Detailed"] = {
+        "Window1": {
+            "building_surface_name": "Floor1",
+            "construction_name": "Cons1",
+            "surface_type": "Window",
+            "vertices": [
+                {"vertex_x_coordinate": 1.0, "vertex_y_coordinate": 1.0, "vertex_z_coordinate": 0.0},
+                {"vertex_x_coordinate": 2.0, "vertex_y_coordinate": 1.0, "vertex_z_coordinate": 0.0},
+                {"vertex_x_coordinate": 2.0, "vertex_y_coordinate": 2.0, "vertex_z_coordinate": 0.0},
+            ],
+        }
+    }
+    model["SurfaceProperty:IncidentSolarMultiplier"] = {
+        "SurfaceProperty:IncidentSolarMultiplier 1": {
+            "surface_name": "Window1",
+            "incident_solar_multiplier": 0.5,
+        }
+    }
+    report = validate_data(model, raw_schema=make_raw_schema(), stage="reference")
+    assert not any(
+        issue.code == "REFERENCE_ERROR"
+        and issue.path == "SurfaceProperty:IncidentSolarMultiplier.SurfaceProperty:IncidentSolarMultiplier 1.surface_name"
+        for issue in report.issues
+    )
+
+
 def test_invalid_vertex_count() -> None:
     model = make_valid_model()
     model["BuildingSurface:Detailed"]["Floor1"]["vertices"] = [
@@ -364,6 +480,87 @@ def test_non_planar_polygon_warning() -> None:
     ]
     report = validate_data(model, raw_schema=make_raw_schema(), stage="geometry")
     assert any(issue.code == "GEOMETRY_WARNING" and "approximately planar" in issue.message for issue in report.issues)
+
+
+def test_parametric_expansion_replaces_placeholders_before_validation() -> None:
+    model = make_valid_model()
+    model["BuildingSurface:Detailed"]["Floor1"]["vertices"] = [
+        {"vertex_x_coordinate": 0.0, "vertex_y_coordinate": 0.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": "=$width", "vertex_y_coordinate": 0.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": "=$width", "vertex_y_coordinate": "=$depth", "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": 0.0, "vertex_y_coordinate": "=$depth", "vertex_z_coordinate": 0.0},
+    ]
+    model["Parametric:Logic"] = {
+        "Main": {
+            "lines": [
+                {"parametric_logic_line": "PARAMETER $width"},
+                {"parametric_logic_line": "PARAMETER $depth"},
+            ]
+        }
+    }
+    model["Parametric:RunControl"] = {
+        "AllRuns": {
+            "runs": [
+                {"perform_run": "No"},
+                {"perform_run": "Yes"},
+            ]
+        }
+    }
+    model["Parametric:SetValueForRun"] = {
+        "$width": {
+            "values": [
+                {"value_for_run": "2.0"},
+                {"value_for_run": "4.0"},
+            ]
+        },
+        "$depth": {
+            "values": [
+                {"value_for_run": "3.0"},
+                {"value_for_run": "5.0"},
+            ]
+        },
+    }
+
+    report = validate_data(model, raw_schema=make_raw_schema(), stage="geometry", expand_parametric=True)
+    assert report.parametric_expanded is True
+    assert report.parametric_run == 2
+    assert report.summary["error_count"] == 0
+
+
+def test_parametric_expansion_can_select_specific_run() -> None:
+    model = make_valid_model()
+    model["BuildingSurface:Detailed"]["Floor1"]["vertices"] = [
+        {"vertex_x_coordinate": 0.0, "vertex_y_coordinate": 0.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": "=$width", "vertex_y_coordinate": 0.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": "=$width", "vertex_y_coordinate": 1.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": 0.0, "vertex_y_coordinate": 1.0, "vertex_z_coordinate": 0.0},
+    ]
+    model["Parametric:Logic"] = {
+        "Main": {
+            "lines": [
+                {"parametric_logic_line": "PARAMETER $width"},
+                {"parametric_logic_line": "$width = $width * 2"},
+            ]
+        }
+    }
+    model["Parametric:SetValueForRun"] = {
+        "$width": {
+            "values": [
+                {"value_for_run": "1.5"},
+                {"value_for_run": "2.0"},
+            ]
+        }
+    }
+
+    report = validate_data(
+        model,
+        raw_schema=make_raw_schema(),
+        stage="geometry",
+        expand_parametric=True,
+        parametric_run=1,
+    )
+    assert report.parametric_run == 1
+    assert report.summary["error_count"] == 0
 
 
 def test_cli_json_output(tmp_path) -> None:
@@ -411,3 +608,40 @@ def test_cli_rejects_idf_input(tmp_path) -> None:
     assert result.exit_code != 0
     assert "epJSON" in result.stderr
     assert "IDF" in result.stderr
+
+
+def test_cli_expand_parametric(tmp_path) -> None:
+    model = make_valid_model()
+    model["BuildingSurface:Detailed"]["Floor1"]["vertices"] = [
+        {"vertex_x_coordinate": 0.0, "vertex_y_coordinate": 0.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": "=$width", "vertex_y_coordinate": 0.0, "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": "=$width", "vertex_y_coordinate": "=$depth", "vertex_z_coordinate": 0.0},
+        {"vertex_x_coordinate": 0.0, "vertex_y_coordinate": "=$depth", "vertex_z_coordinate": 0.0},
+    ]
+    model["Parametric:Logic"] = {
+        "Main": {
+            "lines": [
+                {"parametric_logic_line": "PARAMETER $width"},
+                {"parametric_logic_line": "PARAMETER $depth"},
+            ]
+        }
+    }
+    model["Parametric:SetValueForRun"] = {
+        "$width": {"values": [{"value_for_run": "4.0"}]},
+        "$depth": {"values": [{"value_for_run": "5.0"}]},
+    }
+
+    model_path = tmp_path / "model.epJSON"
+    schema_path = tmp_path / "Energy+.schema.epJSON"
+    model_path.write_text(json.dumps(model), encoding="utf-8")
+    schema_path.write_text(json.dumps(make_raw_schema()), encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        ["validate", str(model_path), "--schema-path", str(schema_path), "--expand-parametric", "--json"],
+    )
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert payload["parametric_expanded"] is True
+    assert payload["parametric_run"] == 1
+    assert payload["summary"]["error_count"] == 0

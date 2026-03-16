@@ -7,6 +7,17 @@ from typing import Any
 from epjson_validator.reference.models import ReferenceFieldRule, ReferenceIndex
 from epjson_validator.schema.introspection import as_str_list, extract_field_schemas, extract_name_namespaces, extract_object_entries
 
+_REFERENCE_NAMESPACE_EXTENSIONS: dict[tuple[str, str], tuple[str, ...]] = {
+    (
+        "SurfaceProperty:IncidentSolarMultiplier",
+        "surface_name",
+    ): (
+        "GlazedExtSubSurfNames",
+        "SubSurfNames",
+        "SurfAndSubSurfNames",
+    ),
+}
+
 
 def build_reference_index(raw_schema: dict[str, Any]) -> ReferenceIndex:
     index = ReferenceIndex()
@@ -14,7 +25,7 @@ def build_reference_index(raw_schema: dict[str, Any]) -> ReferenceIndex:
         index.namespaces_by_category[category_name] = extract_name_namespaces(category_schema)
         field_rules: dict[str, ReferenceFieldRule] = {}
         for field_name, field_schema in extract_field_schemas(category_schema).items():
-            target_namespaces = _extract_target_namespaces(field_schema)
+            target_namespaces = _extract_target_namespaces(category_name, field_name, field_schema)
             if not target_namespaces:
                 continue
             field_rules[field_name] = ReferenceFieldRule(
@@ -26,7 +37,11 @@ def build_reference_index(raw_schema: dict[str, Any]) -> ReferenceIndex:
     return index
 
 
-def _extract_target_namespaces(raw_field: dict[str, Any]) -> tuple[str, ...]:
+def _extract_target_namespaces(
+    category_name: str,
+    field_name: str,
+    raw_field: dict[str, Any],
+) -> tuple[str, ...]:
     namespaces: list[str] = []
     namespaces.extend(as_str_list(raw_field.get("object_list")))
     namespaces.extend(as_str_list(raw_field.get("reference")))
@@ -36,6 +51,7 @@ def _extract_target_namespaces(raw_field: dict[str, Any]) -> tuple[str, ...]:
         namespaces.extend(as_str_list(items.get("object_list")))
         namespaces.extend(as_str_list(items.get("reference")))
 
+    namespaces.extend(_REFERENCE_NAMESPACE_EXTENSIONS.get((category_name, field_name), ()))
     filtered = [namespace for namespace in dict.fromkeys(namespaces) if not _is_type_namespace(namespace)]
     return tuple(filtered)
 
