@@ -11,6 +11,7 @@ import typer
 from epjson_validator.config import DEFAULT_PROFILE, DEFAULT_STAGE, VALID_PROFILES, VALID_STAGES
 from epjson_validator.loader import inspect_data, load_epjson
 from epjson_validator.pipeline.validate import validate_file
+from epjson_validator.schema.converter import convert_raw_schema, load_raw_schema, version_schema_to_dict
 
 app = typer.Typer(help="Validate EnergyPlus epJSON files.")
 
@@ -117,3 +118,22 @@ def stats(
     typer.echo(f"EnergyPlus version: {payload['ep_version'] or 'unknown'}")
     typer.echo(f"Categories: {payload['category_count']}")
     typer.echo(f"Objects: {payload['object_count']}")
+
+
+@app.command("convert-schema")
+def convert_schema(
+    path: Path = typer.Argument(..., exists=True, readable=True, help="Path to Energy+.schema.epJSON file."),
+    output: Path | None = typer.Option(None, "--output", "-o", help="Optional output path for converted JSON."),
+    ep_version: str = typer.Option("24.2.0", "--ep-version", help="Version label to assign to converted schema."),
+) -> None:
+    raw_schema = load_raw_schema(path)
+    converted = convert_raw_schema(raw_schema, ep_version=ep_version)
+    payload = version_schema_to_dict(converted)
+
+    if output is None:
+        typer.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    typer.echo(f"Converted schema written to: {output}")
