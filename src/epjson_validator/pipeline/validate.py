@@ -1,4 +1,4 @@
-﻿"""Validation pipeline orchestration."""
+"""Validation pipeline orchestration."""
 
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ def validate_data(
             "schema",
             "unsupported",
             f"EnergyPlus version '{resolved_version}' is not supported.",
-            suggestion="Use --ep-version 24.2.0 for supported MVP validation.",
+            suggestion="Use --ep-version 24.1.0 or --ep-version 24.2.0 for supported MVP validation.",
             ep_version=resolved_version,
         )
     if _should_run(stage, "schema"):
