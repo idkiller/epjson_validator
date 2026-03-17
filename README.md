@@ -49,7 +49,6 @@ epjson-validator validate model.epJSON --schema-path /path/to/Energy+.schema.epJ
 epjson-validator inspect model.epJSON
 epjson-validator stats model.epJSON
 epjson-validator hvac-graph model.epJSON --graph all
-epjson-validator hvac-graph model.epJSON --graph air --format svg --output air-loop.svg
 epjson-validator hvac-graph model.epJSON --graph all --format html --output hvac.html
 ```
 
@@ -75,8 +74,7 @@ Use `hvac-graph` to inspect system connectivity without a schema file.
 - `--graph zone`: zone equipment chains
 - `--graph all`: emit all three families
 - `--format text`: print a readable text graph to stdout
-- `--format svg`: render a simple SVG diagram
-- `--format html`: render an HTML page with text summary and embedded diagram
+- `--format html`: render an HTML page with text summary and HTML-based diagram
 
 ## Library Usage
 

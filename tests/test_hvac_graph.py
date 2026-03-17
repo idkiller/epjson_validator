@@ -120,23 +120,6 @@ def test_hvac_graph_text_output(tmp_path) -> None:
     assert "ZONE EQUIPMENT GRAPHS" in result.stdout
 
 
-def test_hvac_graph_svg_output(tmp_path) -> None:
-    model_path = tmp_path / "model.epJSON"
-    svg_path = tmp_path / "graph.svg"
-    model_path.write_text(json.dumps(make_hvac_model()), encoding="utf-8")
-
-    result = runner.invoke(
-        app,
-        ["hvac-graph", str(model_path), "--graph", "zone", "--format", "svg", "--output", str(svg_path)],
-    )
-    assert result.exit_code == 0
-    assert svg_path.exists()
-    payload = svg_path.read_text(encoding="utf-8")
-    assert "<svg" in payload
-    assert "Zone Equipment: SPACE1-1" in payload
-    assert "Legend (same name, same color)" in payload
-    assert "SPACE1-1 VAV Reheat" in payload
-
 
 def test_hvac_graph_html_output(tmp_path) -> None:
     model_path = tmp_path / "model.epJSON"
@@ -151,5 +134,15 @@ def test_hvac_graph_html_output(tmp_path) -> None:
     assert html_path.exists()
     payload = html_path.read_text(encoding="utf-8")
     assert "<!DOCTYPE html>" in payload
-    assert "<svg" in payload
+    assert '<section class="diagram">' in payload
     assert "AIR LOOP GRAPHS" in payload
+    assert "Legend (current loop)" in payload
+    assert "Coil:Heating:Water" in payload
+
+
+def test_hvac_graph_svg_format_rejected(tmp_path) -> None:
+    model_path = tmp_path / "model.epJSON"
+    model_path.write_text(json.dumps(make_hvac_model()), encoding="utf-8")
+
+    result = runner.invoke(app, ["hvac-graph", str(model_path), "--format", "svg"])
+    assert result.exit_code == 2
