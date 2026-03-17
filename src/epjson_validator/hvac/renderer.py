@@ -152,9 +152,7 @@ def _type_color_map(diagrams: list[HVACDiagram]) -> dict[str, str]:
 
 
 def _node_type_key(node: HVACNode) -> str:
-    if ": " in node.label:
-        return node.label.rsplit(": ", 1)[0]
-    return node.kind
+    return node.node_type or node.kind
 
 
 def _diagram_legend_items(diagram: HVACDiagram, type_colors: dict[str, str]) -> list[tuple[str, str]]:

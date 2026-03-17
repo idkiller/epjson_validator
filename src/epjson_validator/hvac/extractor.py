@@ -26,12 +26,12 @@ def _extract_air_loop_diagrams(data: dict[str, Any]) -> list[HVACDiagram]:
     for loop_name, loop_data in air_loops.items():
         diagram = HVACDiagram(name=loop_name, kind="air")
         loop_node = _node_id("air_loop", loop_name)
-        diagram.add_node(loop_node, loop_name, "loop")
+        diagram.add_node(loop_node, loop_name, "loop", node_type="AirLoopHVAC")
 
         branch_list_name = loop_data.get("branch_list_name")
         for branch_name in _branch_names(branch_lists.get(branch_list_name, {})):
             branch_node = _node_id("branch", branch_name)
-            diagram.add_node(branch_node, branch_name, "branch")
+            diagram.add_node(branch_node, branch_name, "branch", node_type="Branch")
             path_nodes = [loop_node, branch_node]
             for component in _components(branches.get(branch_name, {})):
                 path_nodes.extend(
@@ -57,7 +57,7 @@ def _extract_plant_loop_diagrams(data: dict[str, Any]) -> list[HVACDiagram]:
     for loop_name, loop_data in plant_loops.items():
         diagram = HVACDiagram(name=loop_name, kind="plant")
         loop_node = _node_id("plant_loop", loop_name)
-        diagram.add_node(loop_node, loop_name, "loop")
+        diagram.add_node(loop_node, loop_name, "loop", node_type="PlantLoop")
 
         for side_name, branch_list_field in (
             ("supply", "plant_side_branch_list_name"),
@@ -65,10 +65,10 @@ def _extract_plant_loop_diagrams(data: dict[str, Any]) -> list[HVACDiagram]:
         ):
             branch_list_name = loop_data.get(branch_list_field)
             side_node = _node_id("plant_side", f"{loop_name}:{side_name}")
-            diagram.add_node(side_node, f"{side_name.title()} Side", "side")
+            diagram.add_node(side_node, f"{side_name.title()} Side", "side", node_type="PlantLoop:Side")
             for branch_name in _branch_names(branch_lists.get(branch_list_name, {})):
                 branch_node = _node_id("branch", f"{loop_name}:{branch_name}")
-                diagram.add_node(branch_node, branch_name, "branch")
+                diagram.add_node(branch_node, branch_name, "branch", node_type="Branch")
                 path_nodes = [loop_node, side_node, branch_node]
                 for component in _components(branches.get(branch_name, {})):
                     component_node = _component_node(
@@ -95,7 +95,7 @@ def _extract_zone_equipment_diagrams(data: dict[str, Any]) -> list[HVACDiagram]:
             continue
         diagram = HVACDiagram(name=zone_name, kind="zone")
         zone_node = _node_id("zone", zone_name)
-        diagram.add_node(zone_node, zone_name, "zone")
+        diagram.add_node(zone_node, zone_name, "zone", node_type="Zone")
 
         equipment_list_name = connection_data.get("zone_conditioning_equipment_list_name")
         equipment_list_node = _node_id("zone_list", equipment_list_name or f"{zone_name}:equipment")
@@ -103,6 +103,7 @@ def _extract_zone_equipment_diagrams(data: dict[str, Any]) -> list[HVACDiagram]:
             equipment_list_node,
             equipment_list_name or "unknown",
             "list",
+            node_type="ZoneHVAC:EquipmentList",
         )
 
         equipment_list = equipment_lists.get(equipment_list_name, {})
@@ -175,7 +176,7 @@ def _component_node(diagram: HVACDiagram, component_object_type: Any, component_
     if not isinstance(component_object_type, str) or not isinstance(component_name, str):
         return None
     node_id = _node_id(component_object_type, component_name)
-    diagram.add_node(node_id, component_name, "component")
+    diagram.add_node(node_id, component_name, "component", node_type=component_object_type)
     return node_id
 
 
