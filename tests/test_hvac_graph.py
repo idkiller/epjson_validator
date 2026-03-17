@@ -115,7 +115,7 @@ def test_hvac_graph_text_output(tmp_path) -> None:
     assert result.exit_code == 0
     assert "AIR LOOP GRAPHS" in result.stdout
     assert "Main Air Loop" in result.stdout
-    assert "Coil:Heating:Water: OA Heating Coil 1" in result.stdout
+    assert "OA Heating Coil 1" in result.stdout
     assert "PLANT LOOP GRAPHS" in result.stdout
     assert "ZONE EQUIPMENT GRAPHS" in result.stdout
 
@@ -136,8 +136,14 @@ def test_hvac_graph_html_output(tmp_path) -> None:
     assert "<!DOCTYPE html>" in payload
     assert '<section class="diagram">' in payload
     assert "AIR LOOP GRAPHS" in payload
-    assert "Legend (current loop)" in payload
-    assert "Coil:Heating:Water" in payload
+    assert "Legend (current loop)" not in payload
+    assert "OA Heating Coil 1" in payload
+    assert ".node{" in payload
+    assert "max-width:100px" in payload
+    assert "text-overflow:ellipsis" in payload
+    assert "overflow:hidden" in payload
+    assert "white-space:nowrap" in payload
+    assert "direction:rtl" in payload
 
 
 def test_hvac_graph_svg_format_rejected(tmp_path) -> None:

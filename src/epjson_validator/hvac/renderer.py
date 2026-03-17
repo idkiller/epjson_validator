@@ -58,7 +58,7 @@ def render_diagrams_html(diagrams_by_kind: dict[str, list[HVACDiagram]], selecte
         graph_parts.append(f'<section class="diagram"><h3>{escape(_diagram_title(diagram))}</h3>')
         legend_items = _diagram_legend_items(diagram, type_colors)
         if legend_items:
-            graph_parts.append('<div class="legend-title">Legend (current loop)</div><ul class="legend">')
+            graph_parts.append('<ul class="legend">')
             for label, color in legend_items:
                 graph_parts.append(
                     '<li>'
@@ -72,9 +72,7 @@ def render_diagrams_html(diagrams_by_kind: dict[str, list[HVACDiagram]], selecte
             for index, node_id in enumerate(path.node_ids):
                 node = diagram.nodes[node_id]
                 color = type_colors.get(_node_type_key(node), _COLOR_BY_KIND.get(node.kind, "#f4a261"))
-                graph_parts.append(
-                    f'<span class="node" style="--node-color:{color}">{escape(_truncate(node.label, 30))}</span>'
-                )
+                graph_parts.append(f'<span class="node" style="--node-color:{color}">{escape(node.label)}</span>')
                 if index < len(path.node_ids) - 1:
                     graph_parts.append('<span class="arrow">→</span>')
             graph_parts.append("</div></div>")
@@ -96,7 +94,6 @@ def render_diagrams_html(diagrams_by_kind: dict[str, list[HVACDiagram]], selecte
         ".diagram{padding:14px 0;border-bottom:1px dashed #d9d2c6;}"
         ".diagram:last-child{border-bottom:none;}"
         "h3{margin:0 0 10px;font-size:18px;}"
-        ".legend-title{font-size:13px;font-weight:600;color:#334e68;margin-bottom:6px;}"
         ".legend{list-style:none;display:flex;flex-wrap:wrap;gap:8px 16px;padding:0;margin:0 0 12px;}"
         ".legend li{display:flex;align-items:center;gap:7px;font-size:12px;color:#334e68;}"
         ".swatch{width:16px;height:16px;border-radius:4px;background:color-mix(in srgb, var(--node-color), white 65%);"
@@ -105,7 +102,8 @@ def render_diagrams_html(diagrams_by_kind: dict[str, list[HVACDiagram]], selecte
         ".path-label{font-size:12px;font-weight:600;color:#334e68;padding-top:8px;}"
         ".nodes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}"
         ".node{border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;border:1.5px solid var(--node-color);"
-        "background:color-mix(in srgb, var(--node-color), white 82%);max-width:220px;}"
+        "background:color-mix(in srgb, var(--node-color), white 82%);max-width:100px;text-overflow:ellipsis;"
+        "overflow:hidden;white-space:nowrap;direction:rtl;}"
         ".arrow{color:#52606d;font-weight:700;}"
         "</style></head><body><div class=\"page\">"
         "<h1>HVAC Connectivity</h1>"
