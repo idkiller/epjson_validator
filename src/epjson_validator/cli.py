@@ -9,7 +9,7 @@ from pathlib import Path
 import typer
 
 from epjson_validator.config import DEFAULT_STAGE, SCHEMA_PATH_ENVVAR, VALID_STAGES
-from epjson_validator.hvac import extract_hvac_diagrams, render_diagrams_html, render_diagrams_svg, render_diagrams_text
+from epjson_validator.hvac import extract_hvac_diagrams, render_diagrams_html, render_diagrams_text
 from epjson_validator.loader import EPJSONLoadError, inspect_data, load_epjson
 from epjson_validator.parametric import ParametricExpansionError, expand_parametric_data
 from epjson_validator.pipeline.validate import validate_file
@@ -167,11 +167,11 @@ def stats(
 def hvac_graph(
     path: Path = typer.Argument(..., exists=True, readable=True, help="Path to epJSON file."),
     graph: str = typer.Option("all", "--graph", help="Graph family: air, plant, zone, or all."),
-    output_format: str = typer.Option("text", "--format", help="Output format: text, svg, or html."),
+    output_format: str = typer.Option("text", "--format", help="Output format: text or html."),
     output: Path | None = typer.Option(
         None,
         "--output",
-        help="Output file path for svg/html. If omitted, output is written to stdout.",
+        help="Output file path for html. If omitted, output is written to stdout.",
     ),
     expand_parametric: bool = typer.Option(
         False,
@@ -187,8 +187,8 @@ def hvac_graph(
 ) -> None:
     if graph not in {"air", "plant", "zone", "all"}:
         raise typer.BadParameter("Unsupported graph. Expected one of air, plant, zone, all.", param_hint="--graph")
-    if output_format not in {"text", "svg", "html"}:
-        raise typer.BadParameter("Unsupported format. Expected one of text, svg, html.", param_hint="--format")
+    if output_format not in {"text", "html"}:
+        raise typer.BadParameter("Unsupported format. Expected one of text, html.", param_hint="--format")
     if parametric_run is not None and not expand_parametric:
         raise typer.BadParameter("--parametric-run requires --expand-parametric.", param_hint="--parametric-run")
 
@@ -205,7 +205,7 @@ def hvac_graph(
         typer.echo(render_diagrams_text(diagrams, graph))
         return
 
-    rendered = render_diagrams_html(diagrams, graph) if output_format == "html" else render_diagrams_svg(diagrams, graph)
+    rendered = render_diagrams_html(diagrams, graph)
     if output is None:
         typer.echo(rendered)
         return
