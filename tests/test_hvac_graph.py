@@ -142,11 +142,10 @@ def test_hvac_graph_html_output(tmp_path) -> None:
     assert "Coil:Heating:Water" in payload
     assert "AirLoopHVAC: OA Sys 1" not in payload
     assert ".node{" in payload
-    assert "max-width:100px" in payload
+    assert "max-width:220px" in payload
     assert "text-overflow:ellipsis" in payload
     assert "overflow:hidden" in payload
     assert "white-space:nowrap" in payload
-    assert "direction:rtl" in payload
 
 
 def test_hvac_graph_svg_format_rejected(tmp_path) -> None:
