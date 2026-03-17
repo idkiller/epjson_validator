@@ -102,14 +102,13 @@ def render_diagrams_html(diagrams_by_kind: dict[str, list[HVACDiagram]], selecte
         ".path-label{font-size:12px;font-weight:600;color:#334e68;padding-top:8px;}"
         ".nodes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}"
         ".node{border-radius:8px;padding:8px 10px;font-size:12px;font-weight:600;border:1.5px solid var(--node-color);"
-        "background:color-mix(in srgb, var(--node-color), white 82%);max-width:220px;text-overflow:ellipsis;"
-        "overflow:hidden;white-space:nowrap;}"
+        "background:color-mix(in srgb, var(--node-color), white 82%);}"
         ".arrow{color:#52606d;font-weight:700;}"
         "</style></head><body><div class=\"page\">"
         "<h1>HVAC Connectivity</h1>"
         "<p>Generated from epJSON. Includes text summary and simple diagram rendering.</p>"
-        f'<section class="panel"><pre>{escape(text)}</pre></section>'
         f'<section class="panel">{"".join(graph_parts)}</section>'
+        f'<section class="panel"><pre>{escape(text)}</pre></section>'
         "</div></body></html>"
     )
 
