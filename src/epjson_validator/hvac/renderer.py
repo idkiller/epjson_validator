@@ -15,6 +15,19 @@ _COLOR_BY_KIND = {
     "component": "#f4a261",
 }
 
+_LEGEND_COLORS = (
+    "#d62828",
+    "#277da1",
+    "#6a4c93",
+    "#2a9d8f",
+    "#f4a261",
+    "#e76f51",
+    "#4361ee",
+    "#ff006e",
+    "#3a5a40",
+    "#bc6c25",
+)
+
 
 def render_diagrams_text(diagrams_by_kind: dict[str, list[HVACDiagram]], selected_kind: str) -> str:
     lines: list[str] = []
@@ -48,9 +61,15 @@ def render_diagrams_svg(diagrams_by_kind: dict[str, list[HVACDiagram]], selected
     node_height = 42
     x_step = 210
     left_margin = 220
+    legend_item_height = 26
+
+    label_colors = _label_color_map(diagrams)
+    legend_labels = list(label_colors)
+    legend_rows = (len(legend_labels) + 2) // 3
+    legend_height = 24 + legend_rows * legend_item_height if legend_labels else 0
 
     total_rows = sum(max(len(diagram.paths), 1) for diagram in diagrams)
-    total_height = 40 + len(diagrams) * (title_height + graph_margin) + total_rows * row_height
+    total_height = 40 + legend_height + len(diagrams) * (title_height + graph_margin) + total_rows * row_height
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{total_height}" viewBox="0 0 {width} {total_height}">',
@@ -64,6 +83,25 @@ def render_diagrams_svg(diagrams_by_kind: dict[str, list[HVACDiagram]], selected
 
     y = 30
     parts.append('<text class="title" x="24" y="24">HVAC Connectivity</text>')
+    if legend_labels:
+        parts.append(f'<text class="subtitle" x="24" y="{y}">Legend (same name, same color)</text>')
+        y += 10
+        legend_cols = 3
+        legend_col_width = 500
+        for index, label in enumerate(legend_labels):
+            row = index // legend_cols
+            col = index % legend_cols
+            legend_x = 24 + col * legend_col_width
+            legend_y = y + row * legend_item_height
+            color = label_colors[label]
+            parts.append(
+                f'<rect x="{legend_x}" y="{legend_y}" rx="4" ry="4" width="18" height="18" '
+                f'fill="{color}" fill-opacity="0.30" stroke="{color}" stroke-width="1.5"/>'
+            )
+            parts.append(
+                f'<text class="path-label" x="{legend_x + 26}" y="{legend_y + 13}">{escape(_truncate(label, 62))}</text>'
+            )
+        y += legend_rows * legend_item_height + 16
     for diagram in diagrams:
         parts.append(f'<text class="subtitle" x="24" y="{y}">{escape(_diagram_title(diagram))}</text>')
         y += 16
@@ -77,7 +115,7 @@ def render_diagrams_svg(diagrams_by_kind: dict[str, list[HVACDiagram]], selected
             x = left_margin
             for index, node_id in enumerate(path.node_ids):
                 node = diagram.nodes[node_id]
-                color = _COLOR_BY_KIND.get(node.kind, "#f4a261")
+                color = label_colors.get(node.label, _COLOR_BY_KIND.get(node.kind, "#f4a261"))
                 parts.append(
                     f'<rect x="{x}" y="{row_top}" rx="8" ry="8" width="{node_width}" height="{node_height}" '
                     f'fill="{color}" fill-opacity="0.20" stroke="{color}" stroke-width="1.5"/>'
@@ -145,3 +183,16 @@ def _truncate(text: str, limit: int) -> str:
     if len(text) <= limit:
         return text
     return text[: limit - 1] + "..."
+
+
+def _label_color_map(diagrams: list[HVACDiagram]) -> dict[str, str]:
+    labels: dict[str, str] = {}
+    for diagram in diagrams:
+        for path in diagram.paths:
+            for node_id in path.node_ids:
+                node = diagram.nodes.get(node_id)
+                if node is None or node.label in labels:
+                    continue
+                color = _LEGEND_COLORS[len(labels) % len(_LEGEND_COLORS)]
+                labels[node.label] = color
+    return labels
