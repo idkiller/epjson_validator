@@ -315,6 +315,270 @@ def make_raw_schema() -> dict:
     }
 
 
+def make_fluid_reference_schema() -> dict:
+    return {
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+            "Version": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "version_identifier": {
+                                "type": "string",
+                                "default": "24.2.0",
+                            }
+                        },
+                    }
+                },
+            },
+            "FluidProperties:Name": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "fluid_name": {
+                                "type": "string",
+                                "reference": ["FluidAndGlycolNames", "FluidNames"],
+                            },
+                            "fluid_type": {
+                                "type": "string",
+                            },
+                        },
+                    }
+                },
+            },
+            "FluidProperties:Saturated": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "fluid_name": {
+                                "type": "string",
+                                "object_list": ["FluidNames"],
+                            }
+                        },
+                    }
+                },
+            },
+            "Coil:Cooling:WaterToAirHeatPump:ParameterEstimation": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "refrigerant_type": {
+                                "type": "string",
+                                "object_list": ["FluidNames"],
+                            }
+                        },
+                    }
+                },
+            },
+        },
+    }
+
+
+def make_curve_alias_schema() -> dict:
+    return {
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+            "Version": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "version_identifier": {
+                                "type": "string",
+                                "default": "24.2.0",
+                            }
+                        },
+                    }
+                },
+            },
+            "Curve:Quadratic": {
+                "type": "object",
+                "name": {
+                    "type": "string",
+                    "reference": ["UnivariateFunctions"],
+                },
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {},
+                    }
+                },
+            },
+            "Curve:Biquadratic": {
+                "type": "object",
+                "name": {
+                    "type": "string",
+                    "reference": ["BivariateFunctions"],
+                },
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {},
+                    }
+                },
+            },
+            "HeatPump:PlantLoop:EIR:Cooling": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "electric_input_to_output_ratio_modifier_function_of_part_load_ratio_curve_name": {
+                                "type": "string",
+                                "object_list": ["UniVariateFunctions"],
+                            }
+                        },
+                    }
+                },
+            },
+            "HeatPump:PlantLoop:EIR:Heating": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "electric_input_to_output_ratio_modifier_function_of_temperature_curve_name": {
+                                "type": "string",
+                                "object_list": ["BiVariateFunctions"],
+                            }
+                        },
+                    }
+                },
+            },
+        },
+    }
+
+
+def make_airflownetwork_reference_schema() -> dict:
+    return {
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+            "Version": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "version_identifier": {
+                                "type": "string",
+                                "default": "24.2.0",
+                            }
+                        },
+                    }
+                },
+            },
+            "AirflowNetwork:SimulationControl": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "wind_pressure_coefficient_type": {
+                                "type": "string",
+                            }
+                        },
+                    }
+                },
+            },
+            "AirflowNetwork:MultiZone:ExternalNode": {
+                "type": "object",
+                "name": {
+                    "type": "string",
+                    "reference": ["ExternalNodeNames"],
+                },
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {},
+                    }
+                },
+            },
+            "AirflowNetwork:MultiZone:Surface": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "external_node_name": {
+                                "type": "string",
+                                "object_list": ["ExternalNodeNames", "OutdoorAirNodeNames"],
+                            }
+                        },
+                    }
+                },
+            },
+        },
+    }
+
+
+def make_refrigeration_case_reference_schema() -> dict:
+    return {
+        "$schema": "https://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+            "Version": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "version_identifier": {
+                                "type": "string",
+                                "default": "24.2.0",
+                            }
+                        },
+                    }
+                },
+            },
+            "Curve:Quadratic": {
+                "type": "object",
+                "name": {
+                    "type": "string",
+                    "reference": ["UnivariateFunctions"],
+                },
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {},
+                    }
+                },
+            },
+            "Refrigeration:Case": {
+                "type": "object",
+                "patternProperties": {
+                    "^.*\\S.*$": {
+                        "type": "object",
+                        "properties": {
+                            "case_defrost_type": {
+                                "type": "string",
+                            },
+                            "defrost_energy_correction_curve_type": {
+                                "type": "string",
+                            },
+                            "defrost_energy_correction_curve_name": {
+                                "type": "string",
+                                "object_list": ["UnivariateFunctions"],
+                            },
+                        },
+                    }
+                },
+            },
+        },
+    }
+
+
 def make_valid_model() -> dict:
     return {
         "Version": {
@@ -400,6 +664,144 @@ def test_reference_names_are_case_insensitive() -> None:
     model["BuildingSurface:Detailed"]["Floor1"]["zone_name"] = "zonea"
     report = validate_data(model, raw_schema=make_raw_schema(), stage="reference")
     assert not any(issue.code == "REFERENCE_ERROR" for issue in report.issues)
+
+
+def test_reference_provider_fields_register_internal_namespaces() -> None:
+    model = {
+        "Version": {
+            "Version 1": {
+                "version_identifier": "24.2.0",
+            }
+        },
+        "FluidProperties:Name": {
+            "FluidProperties:Name 1": {
+                "fluid_name": "R22",
+                "fluid_type": "Refrigerant",
+            }
+        },
+        "FluidProperties:Saturated": {
+            "FluidProperties:Saturated 1": {
+                "fluid_name": "R22",
+            }
+        },
+        "Coil:Cooling:WaterToAirHeatPump:ParameterEstimation": {
+            "Cooling Coil 1": {
+                "refrigerant_type": "R22",
+            }
+        },
+    }
+    report = validate_data(model, raw_schema=make_fluid_reference_schema(), stage="reference")
+    assert not any(issue.code == "REFERENCE_ERROR" for issue in report.issues)
+
+
+def test_reference_namespace_aliases_are_normalized() -> None:
+    model = {
+        "Version": {
+            "Version 1": {
+                "version_identifier": "24.2.0",
+            }
+        },
+        "Curve:Quadratic": {
+            "EIRCurveFuncPLR": {},
+        },
+        "Curve:Biquadratic": {
+            "HeatEIRCurveFuncTemp": {},
+        },
+        "HeatPump:PlantLoop:EIR:Cooling": {
+            "Cooling Coil 1": {
+                "electric_input_to_output_ratio_modifier_function_of_part_load_ratio_curve_name": "EIRCurveFuncPLR",
+            }
+        },
+        "HeatPump:PlantLoop:EIR:Heating": {
+            "Heating Coil 1": {
+                "electric_input_to_output_ratio_modifier_function_of_temperature_curve_name": "HeatEIRCurveFuncTemp",
+            }
+        },
+    }
+    report = validate_data(model, raw_schema=make_curve_alias_schema(), stage="reference")
+    assert not any(issue.code == "REFERENCE_ERROR" for issue in report.issues)
+
+
+def test_airflownetwork_external_node_reference_is_skipped_when_unused() -> None:
+    model = {
+        "Version": {
+            "Version 1": {
+                "version_identifier": "24.2.0",
+            }
+        },
+        "AirflowNetwork:SimulationControl": {
+            "NaturalVentilation": {
+                "wind_pressure_coefficient_type": "SurfaceAverageCalculation",
+            }
+        },
+        "AirflowNetwork:MultiZone:Surface": {
+            "Surface 1": {
+                "external_node_name": "SFacade",
+            }
+        },
+    }
+    report = validate_data(model, raw_schema=make_airflownetwork_reference_schema(), stage="reference")
+    assert not any(issue.code == "REFERENCE_ERROR" for issue in report.issues)
+
+
+def test_airflownetwork_external_node_reference_is_required_when_input_mode_is_used() -> None:
+    model = {
+        "Version": {
+            "Version 1": {
+                "version_identifier": "24.2.0",
+            }
+        },
+        "AirflowNetwork:SimulationControl": {
+            "NaturalVentilation": {
+                "wind_pressure_coefficient_type": "Input",
+            }
+        },
+        "AirflowNetwork:MultiZone:Surface": {
+            "Surface 1": {
+                "external_node_name": "MissingFacade",
+            }
+        },
+    }
+    report = validate_data(model, raw_schema=make_airflownetwork_reference_schema(), stage="reference")
+    assert any(issue.code == "REFERENCE_ERROR" and issue.path.endswith("external_node_name") for issue in report.issues)
+
+
+def test_refrigeration_defrost_curve_reference_is_skipped_when_unused() -> None:
+    model = {
+        "Version": {
+            "Version 1": {
+                "version_identifier": "24.2.0",
+            }
+        },
+        "Refrigeration:Case": {
+            "Case 1": {
+                "case_defrost_type": "OffCycle",
+                "defrost_energy_correction_curve_type": "None",
+                "defrost_energy_correction_curve_name": "MissingCurve",
+            }
+        },
+    }
+    report = validate_data(model, raw_schema=make_refrigeration_case_reference_schema(), stage="reference")
+    assert not any(issue.code == "REFERENCE_ERROR" for issue in report.issues)
+
+
+def test_refrigeration_defrost_curve_reference_is_required_when_applicable() -> None:
+    model = {
+        "Version": {
+            "Version 1": {
+                "version_identifier": "24.2.0",
+            }
+        },
+        "Refrigeration:Case": {
+            "Case 1": {
+                "case_defrost_type": "HotGasWithTemperatureTermination",
+                "defrost_energy_correction_curve_type": "DewpointMethod",
+                "defrost_energy_correction_curve_name": "MissingCurve",
+            }
+        },
+    }
+    report = validate_data(model, raw_schema=make_refrigeration_case_reference_schema(), stage="reference")
+    assert any(issue.code == "REFERENCE_ERROR" and issue.path.endswith("defrost_energy_correction_curve_name") for issue in report.issues)
 
 
 def test_object_type_namespace_is_not_treated_as_object_reference() -> None:

@@ -18,13 +18,25 @@ _REFERENCE_NAMESPACE_EXTENSIONS: dict[tuple[str, str], tuple[str, ...]] = {
     ),
 }
 
+_NAMESPACE_ALIASES: dict[str, str] = {
+    "BiVariateFunctions": "BivariateFunctions",
+    "UniVariateFunctions": "UnivariateFunctions",
+}
+
 
 def build_reference_index(raw_schema: dict[str, Any]) -> ReferenceIndex:
     index = ReferenceIndex()
     for category_name, category_schema in extract_object_entries(raw_schema).items():
-        index.namespaces_by_category[category_name] = extract_name_namespaces(category_schema)
+        index.namespaces_by_category[category_name] = _normalize_namespaces(extract_name_namespaces(category_schema))
+        provider_fields: dict[str, ReferenceFieldRule] = {}
         field_rules: dict[str, ReferenceFieldRule] = {}
         for field_name, field_schema in extract_field_schemas(category_schema).items():
+            provider_namespaces = _extract_provider_namespaces(field_schema)
+            if provider_namespaces:
+                provider_fields[field_name] = ReferenceFieldRule(
+                    field_name=field_name,
+                    target_namespaces=provider_namespaces,
+                )
             target_namespaces = _extract_target_namespaces(category_name, field_name, field_schema)
             if not target_namespaces:
                 continue
@@ -33,6 +45,7 @@ def build_reference_index(raw_schema: dict[str, Any]) -> ReferenceIndex:
                 target_namespaces=target_namespaces,
                 is_array=_is_array_reference(field_schema),
             )
+        index.provider_fields_by_category[category_name] = provider_fields
         index.fields_by_category[category_name] = field_rules
     return index
 
@@ -52,8 +65,14 @@ def _extract_target_namespaces(
         namespaces.extend(as_str_list(items.get("reference")))
 
     namespaces.extend(_REFERENCE_NAMESPACE_EXTENSIONS.get((category_name, field_name), ()))
-    filtered = [namespace for namespace in dict.fromkeys(namespaces) if not _is_type_namespace(namespace)]
-    return tuple(filtered)
+    return _normalize_namespaces(namespaces)
+
+
+def _extract_provider_namespaces(raw_field: dict[str, Any]) -> tuple[str, ...]:
+    if raw_field.get("object_list") or isinstance(raw_field.get("items"), dict):
+        return ()
+    namespaces = as_str_list(raw_field.get("reference"))
+    return _normalize_namespaces(namespaces)
 
 
 def _is_array_reference(raw_field: dict[str, Any]) -> bool:
@@ -65,3 +84,12 @@ def _is_array_reference(raw_field: dict[str, Any]) -> bool:
 
 def _is_type_namespace(namespace: str) -> bool:
     return namespace.endswith("Types")
+
+
+def _normalize_namespaces(namespaces: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    filtered = []
+    for namespace in namespaces:
+        if _is_type_namespace(namespace):
+            continue
+        filtered.append(_NAMESPACE_ALIASES.get(namespace, namespace))
+    return tuple(dict.fromkeys(filtered))

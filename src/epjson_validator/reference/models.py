@@ -15,4 +15,5 @@ class ReferenceFieldRule:
 @dataclass(slots=True)
 class ReferenceIndex:
     namespaces_by_category: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    provider_fields_by_category: dict[str, dict[str, ReferenceFieldRule]] = field(default_factory=dict)
     fields_by_category: dict[str, dict[str, ReferenceFieldRule]] = field(default_factory=dict)

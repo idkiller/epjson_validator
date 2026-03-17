@@ -26,6 +26,8 @@ def validate_references(
             for field_name, field_rule in field_rules.items():
                 if field_name not in obj:
                     continue
+                if _should_skip_reference_validation(category, field_name, obj, data):
+                    continue
                 value = obj[field_name]
                 if field_rule.is_array and isinstance(value, list):
                     _validate_reference_array(
@@ -60,7 +62,10 @@ def _build_namespace_registry(
         if category == "Version" or not isinstance(raw_objects, dict):
             continue
         namespaces = reference_index.namespaces_by_category.get(category, ())
+        provider_fields = reference_index.provider_fields_by_category.get(category, {})
         if not namespaces:
+            namespaces = ()
+        if not namespaces and not provider_fields:
             continue
         for object_name, obj in raw_objects.items():
             if not isinstance(obj, dict):
@@ -92,6 +97,16 @@ def _build_namespace_registry(
                         "existing_name": existing_name,
                     },
                     ep_version=ep_version,
+                )
+            for field_rule in provider_fields.values():
+                _register_provider_field(
+                    category,
+                    object_name,
+                    obj,
+                    field_rule,
+                    registry,
+                    collector,
+                    ep_version,
                 )
     return registry
 
@@ -166,3 +181,92 @@ def _value_exists(
 
 def _normalize_name(value: str) -> str:
     return value.strip().casefold()
+
+
+def _should_skip_reference_validation(
+    category: str,
+    field_name: str,
+    obj: dict[str, Any],
+    data: dict[str, Any],
+) -> bool:
+    if category == "AirflowNetwork:MultiZone:Surface" and field_name == "external_node_name":
+        return _airflow_external_node_reference_is_unused(data)
+    if category == "Refrigeration:Case" and field_name == "defrost_energy_correction_curve_name":
+        return _refrigeration_defrost_curve_is_unused(obj)
+    return False
+
+
+def _airflow_external_node_reference_is_unused(data: dict[str, Any]) -> bool:
+    controls = data.get("AirflowNetwork:SimulationControl")
+    if not isinstance(controls, dict):
+        return False
+    found_control = False
+    for control in controls.values():
+        if not isinstance(control, dict):
+            continue
+        found_control = True
+        raw_value = control.get("wind_pressure_coefficient_type", "SurfaceAverageCalculation")
+        if isinstance(raw_value, str) and raw_value.strip().casefold() == "input":
+            return False
+    return found_control
+
+
+def _refrigeration_defrost_curve_is_unused(obj: dict[str, Any]) -> bool:
+    defrost_type = obj.get("case_defrost_type")
+    curve_type = obj.get("defrost_energy_correction_curve_type")
+    if not isinstance(defrost_type, str):
+        return True
+    normalized_defrost_type = defrost_type.strip().casefold()
+    termination_types = {
+        "electricwithtemperaturetermination",
+        "hotfluidwithtemperaturetermination",
+        "hotgaswithtemperaturetermination",
+    }
+    if normalized_defrost_type not in termination_types:
+        return True
+    if not isinstance(curve_type, str):
+        return False
+    normalized_curve_type = curve_type.strip().casefold()
+    return normalized_curve_type in {"", "none"}
+
+
+def _register_provider_field(
+    category: str,
+    object_name: str,
+    obj: dict[str, Any],
+    field_rule: ReferenceFieldRule,
+    registry: dict[str, dict[str, tuple[str, str]]],
+    collector: IssueCollector,
+    ep_version: str | None,
+) -> None:
+    value = obj.get(field_rule.field_name)
+    if not isinstance(value, str) or not value:
+        return
+    normalized_value = _normalize_name(value)
+    for namespace in field_rule.target_namespaces:
+        namespace_bucket = registry.setdefault(namespace, {})
+        existing = namespace_bucket.get(normalized_value)
+        if existing is None:
+            namespace_bucket[normalized_value] = (category, object_name)
+            continue
+        existing_category, existing_name = existing
+        if existing_category == category and existing_name == object_name:
+            continue
+        collector.add(
+            "REFERENCE_ERROR",
+            "reference",
+            "error",
+            (
+                f"Provider value '{value}' from field '{field_rule.field_name}' conflicts with '{existing_name}' "
+                f"in reference namespace '{namespace}' across categories '{existing_category}' and '{category}'."
+            ),
+            path=f"{category}.{object_name}.{field_rule.field_name}",
+            category=category,
+            object_name=object_name,
+            details={
+                "namespace": namespace,
+                "existing_category": existing_category,
+                "existing_name": existing_name,
+            },
+            ep_version=ep_version,
+        )
