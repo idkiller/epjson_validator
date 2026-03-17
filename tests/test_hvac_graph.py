@@ -134,6 +134,8 @@ def test_hvac_graph_svg_output(tmp_path) -> None:
     payload = svg_path.read_text(encoding="utf-8")
     assert "<svg" in payload
     assert "Zone Equipment: SPACE1-1" in payload
+    assert "Legend (same name, same color)" in payload
+    assert "SPACE1-1 VAV Reheat" in payload
 
 
 def test_hvac_graph_html_output(tmp_path) -> None:
